@@ -4,7 +4,7 @@ import argparse
 import sys
 import os
 
-from .util import make_registration_decorator, make_ckan_api, make_logger
+from .util import make_registration_decorator, make_ckan_api, make_logger, authenticated_ckan_session
 from .projects.arp.export import ARPExport
 
 
@@ -21,6 +21,7 @@ def export_arp(ckan, args):
     """export ARP data"""
     def in_tree(path):
         return os.path.join(args.target_dir, path)
+    session = authenticated_ckan_session(ckan)
     exporter = ARPExport()
     resources = exporter.get_resources(ckan)
     target_paths = set(t[1] for t in resources)
@@ -29,8 +30,20 @@ def export_arp(ckan, args):
             os.makedirs(in_tree(target_path))
         except OSError:
             pass
-    for url, target_path, target_filename in resources:
-        print(url)
+    for url, target_path, target_filename, sha256 in resources:
+        outf = in_tree(os.path.join(target_path, target_filename))
+        # FIXME: stronger test that the target_filename is correct
+        if os.access(outf, os.R_OK):
+            continue
+        tmpf = in_tree(os.path.join(target_path, '.ingest_' + target_filename))
+        with open(tmpf, 'wb') as outfd:
+            logger.info("starting download: %s" % (url))
+            response = session.get(url)
+            for block in response.iter_content(8192):
+                outfd.write(block)
+        os.rename(tmpf, outf)
+        logger.info("download complete: %s" % (url))
+
 
 export_arp.setup = setup_export_arp
 

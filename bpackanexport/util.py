@@ -1,5 +1,7 @@
 import logging
 import ckanapi
+import requests
+import os
 
 
 def make_logger(name):
@@ -48,6 +50,7 @@ def authenticated_ckan_session(ckan):
     if 'field-login' in r.text:
         raise RuntimeError('Login failed.')
     return s
+
 
 def safe_path(parts):
     return '/'.join([t.replace('/', '_') for t in parts])
