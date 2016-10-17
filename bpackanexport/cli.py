@@ -2,8 +2,10 @@ from __future__ import print_function
 
 import argparse
 import sys
+import os
 
 from .util import make_registration_decorator, make_ckan_api, make_logger
+from .projects.arp.export import ARPExport
 
 
 logger = make_logger(__name__)
@@ -17,7 +19,18 @@ def setup_export_arp(subparser):
 @register_command
 def export_arp(ckan, args):
     """export ARP data"""
-    pass
+    def in_tree(path):
+        return os.path.join(args.target_dir, path)
+    exporter = ARPExport()
+    resources = exporter.get_resources(ckan)
+    target_paths = set(t[1] for t in resources)
+    for target_path in target_paths:
+        try:
+            os.makedirs(in_tree(target_path))
+        except OSError:
+            pass
+    for url, target_path, target_filename in resources:
+        print(url)
 
 export_arp.setup = setup_export_arp
 
