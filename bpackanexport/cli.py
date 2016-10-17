@@ -38,7 +38,7 @@ def export_arp(ckan, args):
         tmpf = in_tree(os.path.join(target_path, '.ingest_' + target_filename))
         with open(tmpf, 'wb') as outfd:
             logger.info("starting download: %s" % (url))
-            response = session.get(url)
+            response = session.get(url, stream=True)
             for block in response.iter_content(8192):
                 outfd.write(block)
         os.rename(tmpf, outf)
