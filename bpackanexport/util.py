@@ -1,5 +1,6 @@
 import logging
 import ckanapi
+import string
 import requests
 import os
 
@@ -53,4 +54,13 @@ def authenticated_ckan_session(ckan):
 
 
 def safe_path(parts):
-    return '/'.join([t.replace('/', '_') for t in parts])
+    def escape(s):
+        s = s.lower().strip()
+        l = []
+        for t in s:
+            if t in string.digits or t in string.ascii_letters or t == '-' or t == '_':
+                l.append(t)
+            else:
+                l.append('_')
+        return ''.join(l)
+    return '/'.join([escape(t) for t in parts])

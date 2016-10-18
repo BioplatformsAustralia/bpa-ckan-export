@@ -16,6 +16,6 @@ class ARPExport(object):
             dataset = ckan.action.package_show(id=dataset_id, include_resources=True)
             target_path = safe_path([dataset['taxon_or_organism'], dataset['strain_or_isolate'], dataset['omics'], dataset['type'].split('-')[-1], 'raw'])
             for resource in dataset['resources']:
-                info = (resource['url'], target_path, resource['name'], resource['sha256'])
+                info = (resource['url'], target_path, resource['name'], resource.get('sha256'))
                 resources.append(info)
         return resources
