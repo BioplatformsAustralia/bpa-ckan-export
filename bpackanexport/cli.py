@@ -6,7 +6,8 @@ import os
 
 from .util import make_registration_decorator, make_ckan_api, make_logger, authenticated_ckan_session
 from .projects.arp.export import ARPExport
-
+from .projects.amdb.export import AMDBExport
+import requests
 
 logger = make_logger(__name__)
 register_command, command_fns = make_registration_decorator()
@@ -45,7 +46,55 @@ def export_arp(ckan, args):
         logger.info("download complete: %s" % (url))
 
 
+@register_command
+def export_amdb(ckan, args):
+    """export Australian Microbiome Database data"""
+    def in_tree(args_target_dir, path):
+        return os.path.join(args_target_dir, path)
+
+    exporter = AMDBExport()
+    resources, md5sums = exporter.get_resources(ckan)
+    logger.info(len(resources))
+    target_paths = set(t[1] for t in resources)
+    # Creating folder structure
+    logger.info("creating folder structure")
+    for target_path in target_paths:
+        try:
+            os.makedirs(in_tree(args.target_dir, target_path))
+        except OSError:
+            pass
+    logger.info("downloading datasets")
+    for url, target_path, target_filename, sha256 in resources:
+
+        outf = in_tree(args.target_dir, os.path.join(
+            target_path, target_filename))
+        # FIXME: stronger test that the target_filename is correct
+
+        # Skipping download if already downloaded
+        if os.access(outf, os.R_OK):
+            continue
+
+        logger.info("starting download: %s" % (url))
+        response = requests.get(url, auth=(
+            'CKAN_USERNAME', 'CKAN_PASSWORD'))
+        with open(outf, 'wb') as outfd:
+            for block in response.iter_content(8192):
+                outfd.write(block)
+
+        logger.info("download complete: %s" % (outf))
+
+    # Generating md5sum.txt for every dataset
+    for target_path, md5sum in md5sums.items():
+        f = in_tree(args.target_dir, os.path.join(target_path, "md5sum.txt"))
+        if os.access(f, os.R_OK):
+            continue
+        with open(f, 'w') as md5f:
+            logger.info("Generating md5sum.txt in %s" % (target_path))
+            md5f.write('\n'.join('{} {}'.format(x[0], x[1]) for x in md5sum))
+
+
 export_arp.setup = setup_export_arp
+export_amdb.setup = setup_export_arp
 
 
 def version():
@@ -74,9 +123,11 @@ def commands():
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--version', action='store_true', help='print version and exit')
+    parser.add_argument('--version', action='store_true',
+                        help='print version and exit')
     parser.add_argument('-k', '--api-key', required=True, help='CKAN API Key')
-    parser.add_argument('-u', '--ckan-url', required=True, help='CKAN base url')
+    parser.add_argument('-u', '--ckan-url', required=True,
+                        help='CKAN base url')
 
     subparsers = parser.add_subparsers(dest='name')
     for name, fn, setup_fn, help_text in sorted(commands()):
